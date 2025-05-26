@@ -1,0 +1,20 @@
+services:
+  identity.api:
+    image: ${DOCKER_REGISTRY-}identityapi
+    build:
+      context: .
+      dockerfile: Identity.Api/Dockerfile
+    depends_on:
+      identity.db:
+        condition: service_healthy
+
+  identity.db:
+    image: postgres:latest
+    container_name: identity.db
+    volumes:
+      - ./.containers/postgresql/identity-service:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
