@@ -1,6 +1,6 @@
-﻿using Identity.Core.Constants;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Shared;
+using Shared.Constants;
 
 namespace Identity.Api.Endpoints
 {

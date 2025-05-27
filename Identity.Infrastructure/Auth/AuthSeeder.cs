@@ -1,8 +1,8 @@
-﻿using Identity.Core.Constants;
-using Identity.Core.Entities;
+﻿using Identity.Core.Entities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Constants;
 
 namespace Identity.Infrastructure.Auth
 {

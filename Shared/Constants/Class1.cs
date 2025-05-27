@@ -1,4 +1,4 @@
-﻿namespace Identity.Core.Constants
+﻿namespace Shared.Constants
 {
     public static class ApplicationRoles
     {
@@ -6,6 +6,6 @@
         public const string Teacher = "Teacher";
         public const string Student = "Student";
 
-        public static string[] All => [ Admin, Teacher, Student ];
+        public static string[] All => [Admin, Teacher, Student];
     }
 }
