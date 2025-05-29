@@ -18,3 +18,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  courses.api:
+    image: ${DOCKER_REGISTRY-}coursesapi
+    build:
+      context: .
+      dockerfile: Courses.Api/Dockerfile
+    depends_on:
+      courses.db:
+        condition: service_healthy
+
+  courses.db:
+    image: postgres:latest
+    container_name: courses.db
+    volumes:
+      - ./.containers/postgresql/course-service:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+

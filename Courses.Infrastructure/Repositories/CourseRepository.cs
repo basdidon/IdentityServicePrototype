@@ -42,7 +42,7 @@ namespace Courses.Infrastructure.Repositories
             {
                 courses = courses.Where(x => x.InstructorId == instructorId);
             }
-            
+           
             // status
             if(query.Status == CourseQuery.CourseStatus.NotStarted)
             {
@@ -59,14 +59,15 @@ namespace Courses.Infrastructure.Repositories
 
             if(!string.IsNullOrWhiteSpace(query.OrderBy))
             {
+                var isAscending = query.IsAscending ?? true;
                 courses = query.OrderBy switch
                 {
-                    nameof(Course.Title) => query.IsAscending? courses.OrderBy(x => x.Title) : courses.OrderByDescending(x=>x.Title),
-                    nameof(Course.StartDate) => query.IsAscending?courses.OrderBy(x => x.StartDate) : courses.OrderByDescending(x=>x.StartDate),
+                    nameof(Course.Title) => isAscending ? courses.OrderBy(x => x.Title) : courses.OrderByDescending(x=>x.Title),
+                    nameof(Course.StartDate) => isAscending?courses.OrderBy(x => x.StartDate) : courses.OrderByDescending(x=>x.StartDate),
                     _ => courses
                 };
             }
-
+                
             return await courses.ToListAsync(ct);
         }
 

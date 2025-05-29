@@ -30,7 +30,7 @@ namespace Identity.Infrastructure.Auth
 
             // ADD Users below. (password should match with the password rules.)
             await CreateUserAsync(userManager, "admin", "admin123", ApplicationRoles.Admin);
-            await CreateUserAsync(userManager, "teacher", "teacher123", ApplicationRoles.Teacher);
+            await CreateUserAsync(userManager, "instructor", "instructor123", ApplicationRoles.Instructor);
             await CreateUserAsync(userManager, "student01", "student123", ApplicationRoles.Student);
         }
 

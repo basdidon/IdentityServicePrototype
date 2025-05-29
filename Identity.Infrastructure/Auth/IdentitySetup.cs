@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using Shared;
+using Shared.Options;
 using System.Security.Cryptography;
 
 namespace Identity.Infrastructure.Auth
@@ -15,8 +15,8 @@ namespace Identity.Infrastructure.Auth
     {
         public static IServiceCollection AddJwtAuth(this IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<JwtAuthenticationSettings>(configuration.GetSection("Jwt"));
-            var jwtSettings = configuration.GetSection("Jwt").Get<JwtAuthenticationSettings>()!;
+            services.Configure<JwtIssuerOptions>(configuration.GetSection("Jwt"));
+            var jwtOptions = configuration.GetSection("Jwt").Get<JwtIssuerOptions>()!;
 
             services.AddTransient<IAuthService, JwtService>();
 
@@ -40,27 +40,24 @@ namespace Identity.Infrastructure.Auth
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             }).AddJwtBearer(options =>
             {
+                // Parse the keys and return them as SecurityKey array
+                var rsaKey = RSA.Create();
+                string publicKeyPem = File.ReadAllText(jwtOptions.PublicKeyPath);
+                rsaKey.ImportFromPem(publicKeyPem);
+
                 options.TokenValidationParameters = new TokenValidationParameters()
                 {
                     ValidateActor = false,
                     ValidateIssuer = true,
-                    ValidIssuer = jwtSettings.Issuer,
+                    ValidIssuer = jwtOptions.Issuer,
                     //ValidIssuers = [],
                     ValidateAudience = true,
-                    ValidAudience = jwtSettings.Audience,
+                    ValidAudience = jwtOptions.Audience,
                     //ValidAudiences = [],
                     RequireExpirationTime = true,
                     ValidateIssuerSigningKey = true,
                     ClockSkew = TimeSpan.Zero,
-                    IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
-                    {
-                        // Parse the keys and return them as SecurityKey array
-                        var rsaKey = RSA.Create();
-                        string publicKeyPem = File.ReadAllText(jwtSettings.PublicKeyPath);
-                        rsaKey.ImportFromPem(publicKeyPem);
-
-                        return [new RsaSecurityKey(rsaKey)];
-                    }
+                    IssuerSigningKey = new RsaSecurityKey(rsaKey)
                 };
             });
 

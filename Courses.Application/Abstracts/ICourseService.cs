@@ -1,5 +1,4 @@
 ﻿using Courses.Application.DTOs;
-using Courses.Core.Entities;
 
 namespace Courses.Application.Abstracts
 {

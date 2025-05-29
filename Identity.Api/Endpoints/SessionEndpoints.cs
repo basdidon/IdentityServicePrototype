@@ -3,6 +3,7 @@ using Identity.Application.Interfaces;
 using Identity.Core.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Shared;
 using System.Security.Claims;
 
@@ -18,20 +19,19 @@ namespace Identity.Api.Endpoints
 
             // Create a new session (login & issue JWT)
             app.MapPost("session", async (
-                string username,
-                string password,
+                LoginRequestDto dto,
                 UserManager<ApplicationUser> userManager,
                 SignInManager<ApplicationUser> signInManager,
                 IRefreshTokenRepository refreshTokenRepo,
                 IAuthService authService) =>
             {
-                var user = await userManager.FindByNameAsync(username);
+                var user = await userManager.FindByNameAsync(dto.Username);
                 if (user is null)
                 {
                     return Results.Unauthorized();
                 }
 
-                var result = await signInManager.CheckPasswordSignInAsync(user, password, false);
+                var result = await signInManager.CheckPasswordSignInAsync(user,dto.Password, false);
                 if (!result.Succeeded)
                 {
                     return Results.Unauthorized();
@@ -39,7 +39,7 @@ namespace Identity.Api.Endpoints
 
                 var roles = await userManager.GetRolesAsync(user);
 
-                var accessToken = authService.GenerateAccessToken(user.Id,username, [.. roles]);
+                var accessToken = authService.GenerateAccessToken(user.Id,dto.Username, [.. roles]);
                 var refreshToken = authService.GenerateRefreshToken();
 
                 await refreshTokenRepo.SaveRefreshTokenAsync(user.Id, refreshToken);

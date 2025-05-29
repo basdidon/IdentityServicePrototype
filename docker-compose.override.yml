@@ -16,3 +16,23 @@ services:
       - POSTGRES_DB=identity
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=testpassword
+
+  courses.api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+    ports:
+      - 5100:8080
+      - 5101:8081
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+
+  courses.db:
+    environment:
+      - POSTGRES_DB=courses
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=testpassword
+    ports:
+      - 5433:5432

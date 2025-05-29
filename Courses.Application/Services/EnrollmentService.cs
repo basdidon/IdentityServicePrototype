@@ -2,7 +2,6 @@
 
 namespace Courses.Application.Services
 {
-
     public class EnrollmentService(ICourseRepository courseRepo) : IEnrollmentService
     {
         public async Task EnrollStudentAsync(Guid courseId, Guid studentId, CancellationToken ct)

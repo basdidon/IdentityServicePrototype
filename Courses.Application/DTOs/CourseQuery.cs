@@ -11,13 +11,13 @@
         }
         // Query Properties
         public Guid? InstructorId { get; set; }
-        public CourseStatus Status { get; set; } = CourseStatus.None;
+        public CourseStatus? Status { get; set; } = CourseStatus.None;
 
         // Sort
         public string? OrderBy { get; set; }
-        public bool IsAscending { get; set; } = true;
+        public bool? IsAscending { get; set; } = true;
         // Pagination
-        public int Page { get; set; }
-        public int PageSize { get; set; }
+        public int? Page { get; set; } = 1;
+        public int? PageSize { get; set; } = 20;
     }
 }
