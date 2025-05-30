@@ -32,44 +32,71 @@ namespace Courses.Infrastructure.Repositories
             }
         }
 
-        // Query
-        public async Task<ICollection<Course>> GetCoursesAsync(CourseQuery query, CancellationToken ct = default)
+        private static IQueryable<Course> ApplyCourseQuery(IQueryable<Course> courses,CourseQuery query)
         {
-            var courses = context.Courses.AsQueryable();
-
-            // by instructor
-            if(query.InstructorId is Guid instructorId)
-            {
-                courses = courses.Where(x => x.InstructorId == instructorId);
-            }
-           
+            var now = DateTime.Now;
             // status
-            if(query.Status == CourseQuery.CourseStatus.NotStarted)
+            if (query.Status == CourseQuery.CourseStatus.NotStarted)
             {
-                courses = courses.Where(x => x.StartDate > DateTime.UtcNow);
+                courses = courses.Where(x => x.StartDate > now);
             }
             else if (query.Status == CourseQuery.CourseStatus.Ongoing)
             {
-                courses = courses.Where(x => x.StartDate < DateTime.UtcNow && x.EndDate > DateTime.UtcNow);
+                courses = courses.Where(x => x.StartDate < now && x.EndDate > now);
             }
-            else if(query.Status == CourseQuery.CourseStatus.Ended)
+            else if (query.Status == CourseQuery.CourseStatus.Ended)
             {
-                courses = courses.Where(x => x.EndDate < DateTime.UtcNow);
+                courses = courses.Where(x => x.EndDate < now);
             }
 
-            if(!string.IsNullOrWhiteSpace(query.OrderBy))
+            if (!string.IsNullOrWhiteSpace(query.OrderBy))
             {
                 var isAscending = query.IsAscending ?? true;
                 courses = query.OrderBy switch
                 {
-                    nameof(Course.Title) => isAscending ? courses.OrderBy(x => x.Title) : courses.OrderByDescending(x=>x.Title),
-                    nameof(Course.StartDate) => isAscending?courses.OrderBy(x => x.StartDate) : courses.OrderByDescending(x=>x.StartDate),
+                    nameof(Course.Title) => isAscending ? courses.OrderBy(x => x.Title) : courses.OrderByDescending(x => x.Title),
+                    nameof(Course.StartDate) => isAscending ? courses.OrderBy(x => x.StartDate) : courses.OrderByDescending(x => x.StartDate),
                     _ => courses
                 };
             }
-                
-            return await courses.ToListAsync(ct);
+
+            if (query.Page.HasValue && query.PageSize.HasValue && query.Page > 0 && query.PageSize > 0)
+            {
+                int skip = (query.Page.Value - 1) * query.PageSize.Value;
+                courses = courses.Skip(skip).Take(query.PageSize.Value);
+            }
+
+            return courses;
         }
+
+        // Query
+        public async Task<ICollection<Course>> GetCoursesAsync(CourseQuery query, CancellationToken ct = default)
+        {
+            var courses = context.Courses.AsQueryable()
+                .AsNoTracking();
+            var filteredCourses = ApplyCourseQuery(courses, query);
+            return await filteredCourses.ToListAsync(ct);
+        }
+
+        public async Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId,CourseQuery courseQuery, CancellationToken ct= default)
+        {
+            var courses = context.CourseStudents.AsQueryable()
+                .AsNoTracking()
+                .Where(x => x.StudentId == studentId)
+                .Select(x => x.Course);
+            var filteredCourses = ApplyCourseQuery(courses, courseQuery);
+            return await filteredCourses.ToListAsync(ct);
+        }
+
+        public async Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId,CourseQuery courseQuery, CancellationToken ct = default)
+        {
+            var courses = context.Courses.AsQueryable()
+                .AsNoTracking()
+                .Where(x => x.InstructorId == instructorId);
+            var filteredCourses = ApplyCourseQuery(courses, courseQuery);
+            return await filteredCourses.ToListAsync(ct);
+        }
+
 
         public async Task<Course?> GetCourseByCode(string code, CancellationToken ct = default)
         {

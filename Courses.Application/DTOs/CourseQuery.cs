@@ -10,7 +10,6 @@
             Ended,
         }
         // Query Properties
-        public Guid? InstructorId { get; set; }
         public CourseStatus? Status { get; set; } = CourseStatus.None;
 
         // Sort

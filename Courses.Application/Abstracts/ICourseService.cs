@@ -10,5 +10,8 @@ namespace Courses.Application.Abstracts
 
         Task<CourseQueryDto?> GetCourseByIdAsync(Guid courseId, CancellationToken ct = default);
         Task<ICollection<CourseQueryDto>> GetCoursesAsync(CourseQuery query,CancellationToken ct = default);
+        Task<ICollection<CourseQueryDto>> GetCoursesByStudentAsync(Guid studentId, CourseQuery query, CancellationToken ct = default);
+        Task<ICollection<CourseQueryDto>> GetCoursesByInstructorAsync(Guid instructorId, CourseQuery query, CancellationToken ct = default);
+
     }
 }
