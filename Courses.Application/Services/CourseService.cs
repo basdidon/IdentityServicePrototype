@@ -27,19 +27,19 @@ namespace Courses.Application.Services
             return course?.ToDto();
         }
 
-        public async Task<ICollection<CourseQueryDto>> GetCoursesAsync(CourseQuery query, CancellationToken ct = default)
+        public async Task<ICollection<CourseQueryDto>> GetCoursesAsync(CourseQueryFilters query, CancellationToken ct = default)
         {
             var courses = await courseRepo.GetCoursesAsync(query, ct);
             return [.. courses.Select(x => x.ToDto())];
         }
 
-        public async Task<ICollection<CourseQueryDto>> GetCoursesByStudentAsync(Guid studentId, CourseQuery query, CancellationToken ct = default)
+        public async Task<ICollection<CourseQueryDto>> GetCoursesByStudentAsync(Guid studentId, CourseQueryFilters query, CancellationToken ct = default)
         {
             var courses = await courseRepo.GetCoursesByStudentAsync(studentId, query, ct);
             return [.. courses.Select(x => x.ToDto())];
         }
 
-        public async Task<ICollection<CourseQueryDto>> GetCoursesByInstructorAsync(Guid instructorId,CourseQuery query, CancellationToken ct = default)
+        public async Task<ICollection<CourseQueryDto>> GetCoursesByInstructorAsync(Guid instructorId,CourseQueryFilters query, CancellationToken ct = default)
         {
             var courses = await courseRepo.GetCoursesByInstructorAsync(instructorId, query, ct);
             return [.. courses.Select(x => x.ToDto())];

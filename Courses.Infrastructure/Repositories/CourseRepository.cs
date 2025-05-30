@@ -22,6 +22,17 @@ namespace Courses.Infrastructure.Repositories
             await context.SaveChangesAsync(ct);
         }
 
+        public async Task UpdateCourseInstructorAsync(Guid courseId, Guid instructorId, CancellationToken ct = default)
+        {
+            Course course = new() { Id = courseId };
+            context.Attach(course);
+            course.InstructorId = instructorId;
+
+            context.Entry(course).Property(x => x.InstructorId).IsModified = true;
+
+            await context.SaveChangesAsync(ct);
+        }
+
         public async Task DeleteCourseAsync(Guid courseId, CancellationToken ct = default)
         {
             var course = await context.Courses.FindAsync([courseId], ct);
@@ -32,19 +43,19 @@ namespace Courses.Infrastructure.Repositories
             }
         }
 
-        private static IQueryable<Course> ApplyCourseQuery(IQueryable<Course> courses,CourseQuery query)
+        private static IQueryable<Course> ApplyCourseQuery(IQueryable<Course> courses,CourseQueryFilters query)
         {
             var now = DateTime.Now;
             // status
-            if (query.Status == CourseQuery.CourseStatus.NotStarted)
+            if (query.Status == CourseQueryFilters.CourseStatus.NotStarted)
             {
                 courses = courses.Where(x => x.StartDate > now);
             }
-            else if (query.Status == CourseQuery.CourseStatus.Ongoing)
+            else if (query.Status == CourseQueryFilters.CourseStatus.Ongoing)
             {
                 courses = courses.Where(x => x.StartDate < now && x.EndDate > now);
             }
-            else if (query.Status == CourseQuery.CourseStatus.Ended)
+            else if (query.Status == CourseQueryFilters.CourseStatus.Ended)
             {
                 courses = courses.Where(x => x.EndDate < now);
             }
@@ -70,7 +81,7 @@ namespace Courses.Infrastructure.Repositories
         }
 
         // Query
-        public async Task<ICollection<Course>> GetCoursesAsync(CourseQuery query, CancellationToken ct = default)
+        public async Task<ICollection<Course>> GetCoursesAsync(CourseQueryFilters query, CancellationToken ct = default)
         {
             var courses = context.Courses.AsQueryable()
                 .AsNoTracking();
@@ -78,7 +89,7 @@ namespace Courses.Infrastructure.Repositories
             return await filteredCourses.ToListAsync(ct);
         }
 
-        public async Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId,CourseQuery courseQuery, CancellationToken ct= default)
+        public async Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId,CourseQueryFilters courseQuery, CancellationToken ct= default)
         {
             var courses = context.CourseStudents.AsQueryable()
                 .AsNoTracking()
@@ -88,7 +99,7 @@ namespace Courses.Infrastructure.Repositories
             return await filteredCourses.ToListAsync(ct);
         }
 
-        public async Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId,CourseQuery courseQuery, CancellationToken ct = default)
+        public async Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId,CourseQueryFilters courseQuery, CancellationToken ct = default)
         {
             var courses = context.Courses.AsQueryable()
                 .AsNoTracking()
@@ -96,7 +107,6 @@ namespace Courses.Infrastructure.Repositories
             var filteredCourses = ApplyCourseQuery(courses, courseQuery);
             return await filteredCourses.ToListAsync(ct);
         }
-
 
         public async Task<Course?> GetCourseByCode(string code, CancellationToken ct = default)
         {

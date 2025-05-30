@@ -2,7 +2,10 @@
 using Asp.Versioning.Builder;
 using Courses.Application.Abstracts;
 using Courses.Application.DTOs;
+using Courses.Application.Features.Courses.Commands;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Constants;
 using System.Security.Claims;
@@ -22,65 +25,73 @@ namespace Courses.Api.Endpoints
                 .MapGroup("api/v{version:apiVersion}")
                 .WithApiVersionSet(apiVersionSet);
 
-            versionedGroup.MapPost("/courses", CreateCourse)
-                .RequireAuthorization("CreateCourse");
+            // create
+            versionedGroup.MapPost("/instructors/{instructorId:guid}/courses", AdminCreateCourse);
+            versionedGroup.MapPost("/instructors/me/courses",InstructorCreateCourse);
 
-            versionedGroup.MapPut("/courses/{id:guid}", UpdateCourse);
+            // update
+            versionedGroup.MapPut("/courses/{courseId:guid}", UpdateCourse);
+            versionedGroup.MapPatch("/courses/{courseId:guid}/instructor", UpdateCourseInstructor);
 
-            versionedGroup.MapDelete("/courses/{id:guid}", DeleteCourse);
+            // delete
+            versionedGroup.MapDelete("/courses/{courseId:guid}", DeleteCourse);
 
-            versionedGroup.MapGet("/courses/{id:guid}", GetCourseById);
+            // query
             versionedGroup.MapGet("/courses", GetCourses);
-            versionedGroup.MapGet("/student/courses", GetEnrolledCourses);
+            versionedGroup.MapGet("/courses/{id:guid}", GetCourseById);
+            // query - admin
             versionedGroup.MapGet("/students/{studentId:guid}/courses", GetCoursesByStudentId);
-            versionedGroup.MapGet("/instructor/courses", GetCoursesForInstructor);
             versionedGroup.MapGet("/instructor/{instructorId:guid}/courses", GetCoursesByInstructorId);
+            // query - instructor
+            versionedGroup.MapGet("/instructor/courses", GetCoursesForInstructor);
+            // query - student
+            versionedGroup.MapGet("/student/courses", GetEnrolledCourses);
         }
 
-        public static async Task<IResult> CreateCourse(CreateCourseDto dto, [FromServices] ICourseService courseService, HttpContext httpContext)
+        [Authorize(Roles = ApplicationRoles.Admin)]
+        public static async Task<IResult> AdminCreateCourse(Guid instructorId, CreateCourseCommand command,ISender sender)
         {
-            var user = httpContext.User;
-            var isAdmin = user.IsInRole(ApplicationRoles.Admin);
-            var isInstructor = user.IsInRole(ApplicationRoles.Instructor);
+            var courseId = await sender.Send(command with { InstructorId = instructorId });
+            return Results.Created($"/courses/{courseId}", new { courseId });
+        }
 
-            // Note: User can have more than one role
-            if (dto.InstructorId != Guid.Empty)
-            {
-                if (!isAdmin)
-                    return Results.Forbid();
-
-                // TODO: validate instructor exist if instructor id not admin
-                var courseId = await courseService.CreateCourseAsync(dto);
-                return Results.Created($"/courses/{courseId}", new { courseId });
-            }
-
-            if (!isInstructor)
-                return Results.Forbid();
-
-            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        [Authorize(Roles = ApplicationRoles.Instructor)]
+        public static async Task<IResult> InstructorCreateCourse(CreateCourseCommand command,ISender sender,HttpContext httpContext)
+        {
+            var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(userIdClaim, out Guid instructorId))
             {
-                // use user-id from claim to refer
-                var courseId = await courseService.CreateCourseAsync(dto with { InstructorId = instructorId });
+                var courseId = await sender.Send(command with { InstructorId = instructorId });
                 return Results.Created($"/courses/{courseId}", new { courseId });
             }
 
-            return Results.Unauthorized(); // cannot get user ID
+            return Results.Unauthorized();
         }
 
-        public static async Task<IResult> UpdateCourse(Guid id, UpdateCourseDto dto, [FromServices] ICourseService courseService)
+        [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Instructor}")]
+        public static async Task<IResult> UpdateCourse(Guid courseId, UpdateCourseCommand command, ISender sender)
         {
-            await courseService.UpdateCourseAsync(id, dto);
+            await sender.Send(command with { CourseId = courseId });
             return Results.NoContent();
         }
 
-        public static async Task<IResult> DeleteCourse(Guid id, [FromServices] ICourseService courseService)
+        [Authorize(Roles = ApplicationRoles.Admin)]
+        public static async Task<IResult> UpdateCourseInstructor(Guid courseId, UpdateCourseInstructorCommand command,ISender sender)
         {
-            await courseService.DeleteCourseAsync(id);
+            await sender.Send(command with { CourseId = courseId });
             return Results.NoContent();
         }
 
-        public static async Task<IResult> GetCourses([AsParameters] CourseQuery query, [FromServices] ICourseService courseService)
+        [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Instructor}")]
+        public static async Task<IResult> DeleteCourse(Guid courseId, ISender sender)
+        {
+            await sender.Send(new RemoveCourseCommand(courseId));
+            return Results.NoContent();
+        }
+
+        // Query
+
+        public static async Task<IResult> GetCourses([AsParameters] CourseQueryFilters query, [FromServices] ICourseService courseService)
         {
             var courses = await courseService.GetCoursesAsync(query);
             return Results.Ok(courses);
@@ -93,7 +104,7 @@ namespace Courses.Api.Endpoints
         }
 
         [Authorize(Roles = ApplicationRoles.Student)]
-        public static async Task<IResult> GetEnrolledCourses([AsParameters] CourseQuery query, [FromServices] ICourseService courseService, HttpContext httpContext)
+        public static async Task<IResult> GetEnrolledCourses([AsParameters] CourseQueryFilters query, [FromServices] ICourseService courseService, HttpContext httpContext)
         {
             var studentClaimId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(studentClaimId, out Guid studentId))
@@ -106,7 +117,7 @@ namespace Courses.Api.Endpoints
         }
 
         [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Instructor}")]
-        public static async Task<IResult> GetCoursesByStudentId(Guid studentId, [AsParameters] CourseQuery query, [FromServices] ICourseService courseService)
+        public static async Task<IResult> GetCoursesByStudentId(Guid studentId, [AsParameters] CourseQueryFilters query, [FromServices] ICourseService courseService)
         {
             if (studentId == Guid.Empty)
                 return Results.BadRequest("studentId can be empty");
@@ -114,7 +125,7 @@ namespace Courses.Api.Endpoints
             return Results.Ok(courses);
         }
 
-        public static async Task<IResult> GetCoursesForInstructor([AsParameters] CourseQuery query, [FromServices] ICourseService courseService, HttpContext httpContext)
+        public static async Task<IResult> GetCoursesForInstructor([AsParameters] CourseQueryFilters query, [FromServices] ICourseService courseService, HttpContext httpContext)
         {
             var instructorClaimId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(instructorClaimId, out Guid instructorId))
@@ -126,7 +137,7 @@ namespace Courses.Api.Endpoints
             return Results.Unauthorized();
         }
 
-        public static async Task<IResult> GetCoursesByInstructorId(Guid instructorId, [AsParameters] CourseQuery query, [FromServices] ICourseService courseService)
+        public static async Task<IResult> GetCoursesByInstructorId(Guid instructorId, [AsParameters] CourseQueryFilters query, [FromServices] ICourseService courseService)
         {
             if (instructorId == Guid.Empty)
                 return Results.BadRequest("instructorId can be empty");

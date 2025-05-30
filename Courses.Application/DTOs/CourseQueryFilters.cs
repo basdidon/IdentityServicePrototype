@@ -1,6 +1,6 @@
 ﻿namespace Courses.Application.DTOs
 {
-    public class CourseQuery
+    public class CourseQueryFilters
     {
         public enum CourseStatus
         {
