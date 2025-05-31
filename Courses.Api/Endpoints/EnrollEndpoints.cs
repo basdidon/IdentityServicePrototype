@@ -1,8 +1,8 @@
 ﻿using Asp.Versioning;
 using Asp.Versioning.Builder;
-using Courses.Application.Abstracts;
+using Courses.Application.Features.Courses.Commands;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Shared.Constants;
 using System.Security.Claims;
 
@@ -21,20 +21,17 @@ namespace Courses.Api.Endpoints
                 .MapGroup("api/v{version:apiVersion}")
                 .WithApiVersionSet(apiVersionSet);
 
-            versionedGroup.MapPost("/courses/{courseId}/enroll", Enroll)
-                .RequireAuthorization();
-
-            versionedGroup.MapPost("/courses/{courseId}/unenroll", Unenroll)
-                .RequireAuthorization();
+            versionedGroup.MapPost("/courses/{courseId}/enroll", Enroll);
+            versionedGroup.MapPost("/courses/{courseId}/unenroll", Unenroll);
         }
 
         [Authorize(Roles = ApplicationRoles.Student)]
-        public static async Task<IResult> Enroll(Guid courseId, [FromServices] IEnrollmentService enrollmentService, HttpContext httpContext)
+        public static async Task<IResult> Enroll(Guid courseId, ISender sender, HttpContext httpContext)
         {
             var studentClaimId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(studentClaimId, out Guid studentId))
             {
-                await enrollmentService.EnrollStudentAsync(courseId, studentId);
+                await sender.Send(new EnrollStudentCommand(courseId, studentId));
                 return Results.Accepted();
             }
 
@@ -42,12 +39,12 @@ namespace Courses.Api.Endpoints
         }
 
         [Authorize(Roles = ApplicationRoles.Student)]
-        public static async Task<IResult> Unenroll(Guid courseId, [FromServices] IEnrollmentService enrollmentService, HttpContext httpContext)
+        public static async Task<IResult> Unenroll(Guid courseId, ISender sender, HttpContext httpContext)
         {
             var studentClaimId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Guid.TryParse(studentClaimId, out Guid studentId))
             {
-                await enrollmentService.RemoveEnrollmentAsync(courseId,studentId);
+                await sender.Send(new UnEnrollStudentCommand(courseId, studentId));
                 return Results.Accepted();
             }
 

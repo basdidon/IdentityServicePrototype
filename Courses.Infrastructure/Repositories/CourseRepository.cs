@@ -1,7 +1,8 @@
 ﻿using Courses.Application.Abstracts;
-using Courses.Application.DTOs;
 using Courses.Core.Entities;
+using Courses.Core.Enums;
 using Courses.Infrastructure.Data;
+using Courses.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courses.Infrastructure.Repositories
@@ -43,69 +44,58 @@ namespace Courses.Infrastructure.Repositories
             }
         }
 
-        private static IQueryable<Course> ApplyCourseQuery(IQueryable<Course> courses,CourseQueryFilters query)
-        {
-            var now = DateTime.Now;
-            // status
-            if (query.Status == CourseQueryFilters.CourseStatus.NotStarted)
-            {
-                courses = courses.Where(x => x.StartDate > now);
-            }
-            else if (query.Status == CourseQueryFilters.CourseStatus.Ongoing)
-            {
-                courses = courses.Where(x => x.StartDate < now && x.EndDate > now);
-            }
-            else if (query.Status == CourseQueryFilters.CourseStatus.Ended)
-            {
-                courses = courses.Where(x => x.EndDate < now);
-            }
-
-            if (!string.IsNullOrWhiteSpace(query.OrderBy))
-            {
-                var isAscending = query.IsAscending ?? true;
-                courses = query.OrderBy switch
-                {
-                    nameof(Course.Title) => isAscending ? courses.OrderBy(x => x.Title) : courses.OrderByDescending(x => x.Title),
-                    nameof(Course.StartDate) => isAscending ? courses.OrderBy(x => x.StartDate) : courses.OrderByDescending(x => x.StartDate),
-                    _ => courses
-                };
-            }
-
-            if (query.Page.HasValue && query.PageSize.HasValue && query.Page > 0 && query.PageSize > 0)
-            {
-                int skip = (query.Page.Value - 1) * query.PageSize.Value;
-                courses = courses.Skip(skip).Take(query.PageSize.Value);
-            }
-
-            return courses;
-        }
-
         // Query
-        public async Task<ICollection<Course>> GetCoursesAsync(CourseQueryFilters query, CancellationToken ct = default)
+        public async Task<ICollection<Course>> GetCoursesAsync(
+            CourseStatus courseStatus,
+            string orderBy,
+            bool isAscending,
+            int pageNumber,
+            int pageSize,
+            CancellationToken ct = default)
         {
-            var courses = context.Courses.AsQueryable()
-                .AsNoTracking();
-            var filteredCourses = ApplyCourseQuery(courses, query);
-            return await filteredCourses.ToListAsync(ct);
+            return await context.Courses.AsQueryable()
+                .AsNoTracking()
+                .ByStatus(courseStatus)
+                .OrderBy(orderBy, isAscending)
+                .ToPage(pageNumber, pageSize)
+                .ToListAsync(ct);
         }
 
-        public async Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId,CourseQueryFilters courseQuery, CancellationToken ct= default)
+        public async Task<ICollection<Course>> GetCoursesByStudentAsync(
+            Guid studentId,
+            CourseStatus courseStatus,
+            string orderBy,
+            bool isAscending,
+            int pageNumber,
+            int pageSize,
+            CancellationToken ct = default)
         {
-            var courses = context.CourseStudents.AsQueryable()
+            return await context.CourseStudents.AsQueryable()
                 .AsNoTracking()
                 .Where(x => x.StudentId == studentId)
-                .Select(x => x.Course);
-            var filteredCourses = ApplyCourseQuery(courses, courseQuery);
-            return await filteredCourses.ToListAsync(ct);
+                .Select(x => x.Course)
+                .ByStatus(courseStatus)
+                .OrderBy(orderBy, isAscending)
+                .ToPage(pageNumber, pageSize)
+                .ToListAsync(ct);
         }
 
-        public async Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId,CourseQueryFilters courseQuery, CancellationToken ct = default)
+        public async Task<ICollection<Course>> GetCoursesByInstructorAsync(
+            Guid instructorId,
+            CourseStatus courseStatus,
+            string orderBy,
+            bool isAscending,
+            int pageNumber,
+            int pageSize,
+            CancellationToken ct = default)
         {
-            var courses = context.Courses.AsQueryable()
+            return await context.Courses.AsQueryable()
                 .AsNoTracking()
-                .Where(x => x.InstructorId == instructorId);
-            var filteredCourses = ApplyCourseQuery(courses, courseQuery);
-            return await filteredCourses.ToListAsync(ct);
+                .Where(x => x.InstructorId == instructorId)
+                .ByStatus(courseStatus)
+                .OrderBy(orderBy, isAscending)
+                .ToPage(pageNumber, pageSize)
+                .ToListAsync(ct);
         }
 
         public async Task<Course?> GetCourseByCode(string code, CancellationToken ct = default)
@@ -140,15 +130,15 @@ namespace Courses.Infrastructure.Repositories
         public async Task<ICollection<CourseStudent>> GetEnrolledStudentsAsync(Guid courseId, CancellationToken ct = default)
         {
             return await context.CourseStudents.AsNoTracking()
-                .Where(cs=>cs.CourseId == courseId)
+                .Where(cs => cs.CourseId == courseId)
                 .ToListAsync(ct);
         }
 
         public async Task<ICollection<Course>> GetStudentCoursesAsync(Guid studentId, CancellationToken ct = default)
         {
             return await context.CourseStudents.AsNoTracking()
-                .Where(cs=>cs.StudentId == studentId)
-                .Select(cs=>cs.Course)
+                .Where(cs => cs.StudentId == studentId)
+                .Select(cs => cs.Course)
                 .ToListAsync(ct);
         }
         #endregion

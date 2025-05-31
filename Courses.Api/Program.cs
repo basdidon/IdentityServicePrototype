@@ -15,9 +15,8 @@ var app = builder.Build();
 app.UsePresentaion();
 app.UseInfrastructure();
 app.MapCourseEndpoints();
+app.MapEnrollEndpoints();
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapGet("/", () => "Hello World!").RequireAuthorization();
 
 app.Run();

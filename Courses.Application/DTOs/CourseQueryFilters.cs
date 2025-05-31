@@ -1,22 +1,17 @@
-﻿namespace Courses.Application.DTOs
+﻿using Courses.Core.Enums;
+
+namespace Courses.Application.DTOs
 {
     public class CourseQueryFilters
     {
-        public enum CourseStatus
-        {
-            None,
-            NotStarted,
-            Ongoing,
-            Ended,
-        }
         // Query Properties
-        public CourseStatus? Status { get; set; } = CourseStatus.None;
+        public CourseStatus? Status { get; set; }
 
         // Sort
         public string? OrderBy { get; set; }
-        public bool? IsAscending { get; set; } = true;
+        public bool? IsAscending { get; set; }
         // Pagination
-        public int? Page { get; set; } = 1;
-        public int? PageSize { get; set; } = 20;
+        public int? Page { get; set; }
+        public int? PageSize { get; set; }
     }
 }

@@ -18,31 +18,12 @@ namespace Courses.Application.Mappers
             EndDate = course.EndDate,
         };
 
-        public static Course ToEntity(this CreateCourseDto dto)
+        public static CourseStudentQueryDto ToDto(this CourseStudent courseStudent)
         => new()
         {
-            Code = dto.Code,
-            Title = dto.Title,
-            Description = dto.Description,
-            InstructorId = dto.InstructorId,
-            DurationInHours = dto.DurationInHours,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate
+            StudentId = courseStudent.StudentId,
+            EnrolledAt = courseStudent.EnrolledAt,
         };
-
-        public static Course ToEntity(this UpdateCourseDto dto, Guid courseId)
-        => new()
-        {
-            Id = courseId,
-            Code = dto.Code,
-            Title = dto.Title,
-            Description = dto.Description,
-            InstructorId = dto.InstructorId,
-            DurationInHours = dto.DurationInHours,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate
-        };
-
     }
 
 }

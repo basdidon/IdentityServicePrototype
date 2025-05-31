@@ -1,5 +1,6 @@
 ﻿using Courses.Application.DTOs;
 using Courses.Core.Entities;
+using Courses.Core.Enums;
 
 namespace Courses.Application.Abstracts
 {
@@ -12,9 +13,9 @@ namespace Courses.Application.Abstracts
         
         Task<Course?> GetCourseById(Guid courseId, CancellationToken ct = default);
         Task<Course?> GetCourseByCode(string code, CancellationToken ct = default);
-        Task<ICollection<Course>> GetCoursesAsync(CourseQueryFilters courseQuery, CancellationToken ct = default);
-        Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId ,CourseQueryFilters courseQuery, CancellationToken ct = default);
-        Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId,CourseQueryFilters courseQuery, CancellationToken ct = default);
+        Task<ICollection<Course>> GetCoursesAsync(CourseStatus courseStatus, string orderBy, bool isAscending, int pageNumber, int pageSize, CancellationToken ct = default);
+        Task<ICollection<Course>> GetCoursesByStudentAsync(Guid studentId , CourseStatus courseStatus, string orderBy, bool isAscending, int pageNumber, int pageSize, CancellationToken ct = default);
+        Task<ICollection<Course>> GetCoursesByInstructorAsync(Guid instructorId, CourseStatus courseStatus, string orderBy, bool isAscending, int pageNumber, int pageSize, CancellationToken ct = default);
 
         // enrollment
         Task EnrollStudentAsync(Guid courseId, Guid studentId, CancellationToken ct = default);
