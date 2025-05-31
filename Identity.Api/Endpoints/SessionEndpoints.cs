@@ -1,75 +1,73 @@
 ﻿using Identity.Application.DTOs;
 using Identity.Application.Interfaces;
 using Identity.Core.Entities;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Shared;
 using System.Security.Claims;
 
 namespace Identity.Api.Endpoints
 {
-
-    public class SessionEndpoints : IEndpoint
+    public static class SessionEndpoints
     {
-        public void MapEndpoint(IEndpointRouteBuilder app)
+        public static void MapSessionEndpoint(this IEndpointRouteBuilder app)
         {
-            // Register new users (create a user resource)
             app.MapPost("users", () => { });
+            app.MapPost("/login", Login);
+            app.MapPost("/logout", Logout);
+            app.MapPost("/refresh", Refresh);
+        }
 
-            // Create a new session (login & issue JWT)
-            app.MapPost("session", async (
+        public static async Task<IResult> Login(
                 LoginRequestDto dto,
                 UserManager<ApplicationUser> userManager,
                 SignInManager<ApplicationUser> signInManager,
                 IRefreshTokenRepository refreshTokenRepo,
-                IAuthService authService) =>
+                IAuthService authService)
+        {
+            var user = await userManager.FindByNameAsync(dto.Username);
+            if (user is null)
             {
-                var user = await userManager.FindByNameAsync(dto.Username);
-                if (user is null)
-                {
-                    return Results.Unauthorized();
-                }
+                return Results.Unauthorized();
+            }
 
-                var result = await signInManager.CheckPasswordSignInAsync(user,dto.Password, false);
-                if (!result.Succeeded)
-                {
-                    return Results.Unauthorized();
-                }
-
-                var roles = await userManager.GetRolesAsync(user);
-
-                var accessToken = authService.GenerateAccessToken(user.Id,dto.Username, [.. roles]);
-                var refreshToken = authService.GenerateRefreshToken();
-
-                await refreshTokenRepo.SaveRefreshTokenAsync(user.Id, refreshToken);
-
-                return Results.Ok(new { accessToken, refreshToken = RefreshTokenDto.Map(refreshToken) });
-            });
-
-            // Destroy the session (logout - optional)
-            app.MapDelete("session", async (HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
+            var result = await signInManager.CheckPasswordSignInAsync(user, dto.Password, false);
+            if (!result.Succeeded)
             {
-                // revock refresh token
-                var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (userId is null) return Results.Unauthorized();
+                return Results.Unauthorized();
+            }
 
-                var user = await userManager.FindByIdAsync(userId);
+            var roles = await userManager.GetRolesAsync(user);
 
-                if (user is null)
-                    return Results.NotFound();
+            var accessToken = authService.GenerateAccessToken(user.Id, dto.Username, [.. roles]);
+            var refreshToken = authService.GenerateRefreshToken();
 
-                return Results.Ok(new
-                {
-                    user.Id,
-                    user.UserName,
-                    user.Email
-                });
+            await refreshTokenRepo.SaveRefreshTokenAsync(user.Id, refreshToken);
 
-            }).RequireAuthorization();
+            return Results.Ok(new { accessToken, refreshToken = RefreshTokenDto.Map(refreshToken) });
+        }
 
-            // Refresh an access token (optional)
-            app.MapPost("session/refresh", () => { });
+        [Authorize]
+        public static async Task<IResult> Logout(HttpContext httpContext, UserManager<ApplicationUser> userManager,IRefreshTokenRepository refreshTokenRepo)
+        {
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId is null) return Results.Unauthorized();
+
+            var user = await userManager.FindByIdAsync(userId);
+
+            if (user is null)
+                return Results.Unauthorized();
+
+            // TODO:
+            // - find refresh token by userId
+            // - revock refresh token 
+
+            return Results.Ok();
+        }
+
+        public static async Task<IResult> Refresh(RefreshRequestDto dto ,HttpContext httpContext)
+        {
+            return await Task.FromResult(Results.Ok());
         }
     }
 }
