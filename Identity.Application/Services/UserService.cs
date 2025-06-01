@@ -1,37 +1,55 @@
 ﻿using Identity.Application.Interfaces;
 using Identity.Core.Entities;
+using Microsoft.AspNetCore.Identity;
 
 namespace Identity.Application.Services
 {
     public interface IUserService
     {
-        public Task<RefreshToken?> GetRefreshTokenAsync(string token);
-        public Task SaveRefreshTokenAsync(ApplicationUser user, RefreshToken token);
-        public Task RevokeRefreshTokenAsync(string token);
-        public Task<ApplicationUser?> GetUserByRefreshTokenAsync(string token);
+        Task<(string accessToken, RefreshToken refreshToken)?> LoginAsync(string username, string password);
+        Task LogoutAsync(string userId);
+        Task<(string accessToken, RefreshToken refreshToken)?> RefreshTokenAsync(string refreshToken);
     }
 
-
-    public class UserService(IUserRepository userRepository, IRefreshTokenRepository refreshTokenRepository) : IUserService
+    public class UserService(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IAuthService authService, IUserRepository userRepository, IRefreshTokenRepository refreshTokenRepo) : IUserService
     {
-        public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
+        public async Task<(string accessToken, RefreshToken refreshToken)?> LoginAsync(string username, string password)
         {
-            return await refreshTokenRepository.GetRefreshTokenAsync(token);
+            var user = await userManager.FindByNameAsync(username);
+            if (user == null || !(await signInManager.CheckPasswordSignInAsync(user, password, false)).Succeeded)
+                return null;
+
+            var roles = await userManager.GetRolesAsync(user);
+            var accessToken = authService.GenerateAccessToken(user.Id, username, [.. roles]);
+            var refreshToken = authService.GenerateRefreshToken();
+
+            await refreshTokenRepo.SaveRefreshTokenAsync(user.Id, refreshToken);
+            return (accessToken, refreshToken);
         }
 
-        public async Task SaveRefreshTokenAsync(ApplicationUser user, RefreshToken token)
+        public async Task LogoutAsync(string userId)
         {
-            await refreshTokenRepository.SaveRefreshTokenAsync(user.Id, token);
+            await refreshTokenRepo.RevokeAllRefreshTokensAsync(userId);
         }
 
-        public async Task<ApplicationUser?> GetUserByRefreshTokenAsync(string token)
+        public async Task<(string accessToken, RefreshToken refreshToken)?> RefreshTokenAsync(string oldToken)
         {
-            return await userRepository.GetUserByRefreshTokenAsync(token);
-        }
+            var refreshToken = await refreshTokenRepo.GetRefreshTokenAsync(oldToken);
+            if (refreshToken == null || !refreshToken.IsActive)
+                return null;
 
-        public async Task RevokeRefreshTokenAsync(string token)
-        {
-            await refreshTokenRepository.RevokeRefreshTokenAsync(token);
+            var user = await userRepository.GetUserByRefreshTokenAsync(oldToken);
+            if (user == null)
+                return null;
+
+            await refreshTokenRepo.RevokeRefreshTokenAsync(oldToken);
+
+            var newRefreshToken = authService.GenerateRefreshToken();
+            await refreshTokenRepo.SaveRefreshTokenAsync(user.Id, newRefreshToken);
+            var roles = await userManager.GetRolesAsync(user);
+            var newAccessToken = authService.GenerateAccessToken(user.Id, user.UserName ?? string.Empty, [.. roles]);
+
+            return (newAccessToken, newRefreshToken);
         }
     }
 }

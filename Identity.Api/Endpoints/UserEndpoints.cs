@@ -1,31 +1,45 @@
-﻿using Identity.Core.Entities;
+﻿using Asp.Versioning.Builder;
+using Asp.Versioning;
+using Identity.Core.Entities;
 using Microsoft.AspNetCore.Identity;
-using Shared;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Identity.Api.Endpoints
 {
-    public class UserEndpoints : IEndpoint
+    public static class UserEndpoints
     {
-        public void MapEndpoint(IEndpointRouteBuilder app)
+        public static void MapUserEndpoints(this IEndpointRouteBuilder app)
         {
-            app.MapGet("user/me", async (HttpContext httpContext,UserManager<ApplicationUser> userManager) => {
-                var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                Console.WriteLine($"userId ; {userId}");
-                if (userId is null) return Results.Unauthorized();
+            ApiVersionSet apiVersionSet = app.NewApiVersionSet()
+                .HasApiVersion(new ApiVersion(1))
+                .ReportApiVersions()
+                .Build();
 
-                var user = await userManager.FindByIdAsync(userId);
+            RouteGroupBuilder versionedGroup = app
+                .MapGroup("api/v{version:apiVersion}")
+                .WithApiVersionSet(apiVersionSet);
 
-                if (user is null)
-                    return Results.NotFound();
+            versionedGroup.MapGet("user/me", Profile)
+                .RequireAuthorization();
+        }
 
-                return Results.Ok(new
-                {
-                    user.Id,
-                    user.UserName,
-                    user.Email
-                });
-            }).RequireAuthorization();
+        public static async Task<IResult> Profile(HttpContext httpContext, UserManager<ApplicationUser> userManager)
+        {
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId is null) return Results.Unauthorized();
+
+            var user = await userManager.FindByIdAsync(userId);
+
+            if (user is null)
+                return Results.NotFound();
+
+            return Results.Ok(new
+            {
+                user.Id,
+                user.UserName,
+                user.Email
+            });
         }
     }
 }

@@ -1,9 +1,7 @@
 ﻿using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
-using Asp.Versioning.Builder;
 using Identity.Api.Endpoints;
 using Microsoft.OpenApi.Models;
-using Shared;
 
 namespace Identity.Api.Configurations
 {
@@ -54,19 +52,15 @@ namespace Identity.Api.Configurations
 
         public static void UsePresentation(this WebApplication app)
         {
-            ApiVersionSet apiVersionSet = app.NewApiVersionSet()
-                .HasApiVersion(new ApiVersion(1))
-                .ReportApiVersions()
-                .Build();
-
-            RouteGroupBuilder versionedGroup = app
-                .MapGroup("api/v{version:apiVersion}")
-                .WithApiVersionSet(apiVersionSet);
-
-            app.MapEndpoints(versionedGroup);
             app.MapGet("/", () => Results.Redirect("/swagger"));
+
             app.MapWellKnownEndpoint();
 
+            app.MapAuthencationEndpoints();
+            app.MapUserEndpoints();
+
+            app.MapAdminOnlyEndpoints();
+            
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

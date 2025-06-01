@@ -25,12 +25,16 @@ namespace Courses.Api.Endpoints
                 .WithApiVersionSet(apiVersionSet);
 
             // create
-            versionedGroup.MapPost("/instructors/{instructorId:guid}/courses", AdminCreateCourse);
-            versionedGroup.MapPost("/instructors/me/courses", InstructorCreateCourse);
+            versionedGroup.MapPost("/instructors/{instructorId:guid}/courses", AdminCreateCourse)
+                .WithSummary("Admin creates course with assigned instructor.");
+            versionedGroup.MapPost("/instructors/me/courses", InstructorCreateCourse)
+                .WithSummary("Instructor creates their own course.");
 
             // update
-            versionedGroup.MapPut("/courses/{courseId:guid}", UpdateCourse);
-            versionedGroup.MapPatch("/courses/{courseId:guid}/instructor", UpdateCourseInstructor);
+            versionedGroup.MapPut("/courses/{courseId:guid}", UpdateCourse)
+                .WithSummary("Admin or Instructor update course");
+            versionedGroup.MapPatch("/courses/{courseId:guid}/instructor", UpdateCourseInstructor)
+                .WithSummary("Admin update instructor");
 
             // delete
             versionedGroup.MapDelete("/courses/{courseId:guid}", DeleteCourse);
@@ -70,8 +74,28 @@ namespace Courses.Api.Endpoints
         }
 
         [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Instructor}")]
-        public static async Task<IResult> UpdateCourse(Guid courseId, UpdateCourseCommand command, ISender sender)
+        public static async Task<IResult> UpdateCourse(Guid courseId, UpdateCourseCommand command, ISender sender, HttpContext httpContext)
         {
+            // Step 1: Get the course
+            var course = await sender.Send(new CourseByIdQuery(courseId));
+            if (course is null)
+                return Results.NotFound();
+
+            // Step 2: If admin, allow
+            if (httpContext.User.IsInRole(ApplicationRoles.Admin))
+            {
+                await sender.Send(command with { CourseId = courseId });
+                return Results.NoContent();
+            }
+
+            // Step 3: Instructor role — check ownership
+            var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdClaim, out Guid instructorId))
+                return Results.Unauthorized();
+
+            if (course.InstructorId != instructorId)
+                return Results.Forbid();
+
             await sender.Send(command with { CourseId = courseId });
             return Results.NoContent();
         }
@@ -104,7 +128,7 @@ namespace Courses.Api.Endpoints
             return course is null ? Results.NotFound() : Results.Ok(course);
         }
 
-        public static async Task<IResult> GetEnrolledStudents(Guid courseId,ISender sender)
+        public static async Task<IResult> GetEnrolledStudents(Guid courseId, ISender sender)
         {
             var students = await sender.Send(new EnrolledStudentsQuery(courseId));
             return Results.Ok(students);

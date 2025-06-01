@@ -7,44 +7,38 @@ namespace Identity.Infrastructure.Repositories
 {
     internal class RefreshTokenRepository(ApplicationDbContext context) : IRefreshTokenRepository
     {
-        public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
+        public async Task<RefreshToken?> GetRefreshTokenAsync(string token, CancellationToken ct = default)
         {
             return await context.RefreshTokens
                 .Include(t => t.User)
-                .SingleOrDefaultAsync(x => x.Token == token);
+                .SingleOrDefaultAsync(x => x.Token == token,ct);
         }
 
-        public async Task<ApplicationUser?> GetUserByRefreshTokenAsync(string token)
-        {
-            var refreshToken = await GetRefreshTokenAsync(token);
-            return refreshToken?.User;
-        }
-
-        public async Task SaveRefreshTokenAsync(string userId, RefreshToken newRefreshToken)
+        public async Task SaveRefreshTokenAsync(string userId, RefreshToken newRefreshToken, CancellationToken ct = default)
         {
             var user = await context.Users
-                .FirstOrDefaultAsync(u => u.Id == userId) ?? throw new KeyNotFoundException("user not found.");
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken: ct) ?? throw new KeyNotFoundException("user not found.");
 
             user.RefreshTokens.Add(newRefreshToken);
 
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync(ct);
         }
 
-        // Debug
-        public async Task<List<RefreshToken>> GetAllRefreshTokenAsync()
+        public async Task RevokeRefreshTokenAsync(string token, CancellationToken ct = default)
         {
-            // return RefreshTokenDtos from here
-            return await context.RefreshTokens
-                .Include(rt => rt.User)
-                .ToListAsync();
-        }
-
-        public async Task RevokeRefreshTokenAsync(string token)
-        {
-            var refreshToken = await context.RefreshTokens.FindAsync(token) ?? throw new Exception();
+            var refreshToken = await context.RefreshTokens.FindAsync([token], ct) ?? throw new Exception();
 
             refreshToken.Revoked = DateTime.UtcNow;
-            await context.SaveChangesAsync();
+            await context.SaveChangesAsync( ct);
+        }
+
+        public async Task RevokeAllRefreshTokensAsync(string userId, CancellationToken ct = default)
+        {
+            var refreshToken = await context.RefreshTokens
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(x=>x.User.Id == userId && x.IsActive == true)
+                .ToListAsync(ct);
         }
     }
 }

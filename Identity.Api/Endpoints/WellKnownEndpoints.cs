@@ -6,36 +6,38 @@ namespace Identity.Api.Endpoints
 {
     public static class WellKnownEndpoints
     {
-        public static void MapWellKnownEndpoint(this WebApplication app)
+        public static void MapWellKnownEndpoint(this IEndpointRouteBuilder app)
         {
             // Serve .well-known/openid-configuration
-            app.MapGet("/.well-known/openid-configuration", (HttpContext ctx) =>
+            app.MapGet("/.well-known/openid-configuration", OpenIdConfiguration);
+
+            app.MapGet("/.well-known/jwks.json", GetJsonWebKeySet);
+        }
+
+        public static IResult OpenIdConfiguration()
+        {
+            var baseUrl = $"http://identity.api:8080";
+            return Results.Json(new
             {
-                var baseUrl = $"http://identity.api:8080";
-                return Results.Json(new
-                {
-                    issuer = "identity.api",
-                    jwks_uri = $"{baseUrl}/.well-known/jwks.json"
-                });
+                issuer = "identity.api",
+                jwks_uri = $"{baseUrl}/.well-known/jwks.json"
             });
+        }
 
-            app.MapGet("/.well-known/jwks.json", (IAuthService authService,IOptions<JwtIssuerOptions> options) =>
+        public static IResult GetJsonWebKeySet(IAuthService authService, IOptions<JwtIssuerOptions> options)
+        {
+            Console.WriteLine("[Get] jwks.json");
+
+            var jwk = authService.GetJsonWebKey();
+
+            // Create JWKS (JSON Web Key Set)
+            var jwks = new
             {
-                Console.WriteLine("[Get] jwks.json");
+                keys = new[] { jwk }
+            };
 
-                var jwk = authService.GetJsonWebKey();
-
-                // Create JWKS (JSON Web Key Set)
-                var jwks = new
-                {
-                    keys = new[] { jwk }
-                };
-
-                // Return the JWKS as JSON
-                return Results.Ok(jwks);
-            });
-
-
+            // Return the JWKS as JSON
+            return Results.Ok(jwks);
         }
     }
 }
