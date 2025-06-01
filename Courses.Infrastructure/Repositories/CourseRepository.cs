@@ -121,9 +121,17 @@ namespace Courses.Infrastructure.Repositories
             await context.SaveChangesAsync(ct);
         }
 
-        public Task UnEnrollStudentAsync(Guid courseId, Guid studentId, CancellationToken ct = default)
+        public async Task UnEnrollStudentAsync(Guid courseId, Guid studentId, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            var course = await context.Courses.Include(x=>x.CourseStudents)
+                .FirstOrDefaultAsync(c => c.Id == courseId, cancellationToken: ct);
+            var toRemove = course?.CourseStudents.FirstOrDefault(x => x.StudentId == studentId);
+
+            if (toRemove != null)
+            {
+                course?.CourseStudents.Remove(toRemove);
+                await context.SaveChangesAsync(ct);
+            }
         }
 
         // Query

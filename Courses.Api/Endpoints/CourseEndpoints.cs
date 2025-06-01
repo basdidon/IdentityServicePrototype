@@ -26,9 +26,11 @@ namespace Courses.Api.Endpoints
 
             // create
             versionedGroup.MapPost("/instructors/{instructorId:guid}/courses", AdminCreateCourse)
-                .WithSummary("Admin creates course with assigned instructor.");
+                .WithSummary("Admin creates course with assigned instructor.")
+                .WithGroupName("CreateCourse");
             versionedGroup.MapPost("/instructors/me/courses", InstructorCreateCourse)
-                .WithSummary("Instructor creates their own course.");
+                .WithSummary("Instructor creates their own course.")
+                .WithGroupName("CreateCourse");
 
             // update
             versionedGroup.MapPut("/courses/{courseId:guid}", UpdateCourse)
@@ -37,7 +39,8 @@ namespace Courses.Api.Endpoints
                 .WithSummary("Admin update instructor");
 
             // delete
-            versionedGroup.MapDelete("/courses/{courseId:guid}", DeleteCourse);
+            versionedGroup.MapDelete("/courses/{courseId:guid}", DeleteCourse)
+                .WithSummary("Admin delete any course or Instructor delete thier own course.");
 
             // query
             versionedGroup.MapGet("/courses", GetCourses);
@@ -45,8 +48,10 @@ namespace Courses.Api.Endpoints
             versionedGroup.MapGet("/courses/{courseId:guid}/enrolled-students", GetEnrolledStudents);
 
             // query - admin
-            versionedGroup.MapGet("/students/{studentId:guid}/courses", GetCoursesByStudentId);
-            versionedGroup.MapGet("/instructors/{instructorId:guid}/courses", GetCoursesByInstructorId);
+            versionedGroup.MapGet("/students/{studentId:guid}/courses", GetCoursesByStudentId)
+                .WithSummary("Admin list student courses");
+            versionedGroup.MapGet("/instructors/{instructorId:guid}/courses", GetCoursesByInstructorId)
+                .WithSummary("Admin list instructor courses");
             // query - instructor
             versionedGroup.MapGet("/instructor/courses", GetCoursesForInstructor);
             // query - student
@@ -108,8 +113,28 @@ namespace Courses.Api.Endpoints
         }
 
         [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Instructor}")]
-        public static async Task<IResult> DeleteCourse(Guid courseId, ISender sender)
+        public static async Task<IResult> DeleteCourse(Guid courseId, ISender sender,HttpContext httpContext)
         {
+            // Step 1: Get the course
+            var course = await sender.Send(new CourseByIdQuery(courseId));
+            if (course is null)
+                return Results.NotFound();
+
+            // Step 2: If admin, allow
+            if (httpContext.User.IsInRole(ApplicationRoles.Admin))
+            {
+                await sender.Send(new RemoveCourseCommand(courseId));
+                return Results.NoContent();
+            }
+
+            // Step 3: Instructor role — check ownership
+            var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdClaim, out Guid instructorId))
+                return Results.Unauthorized();
+
+            if (course.InstructorId != instructorId)
+                return Results.Forbid();
+
             await sender.Send(new RemoveCourseCommand(courseId));
             return Results.NoContent();
         }
